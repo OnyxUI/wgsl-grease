@@ -229,7 +229,9 @@ impl WgslBindgen {
 
             if self.separate_files {
                 std::fs::write(
-                    self.output.join(&file.name).with_extension("rs"),
+                    self.output
+                        .join(file.name.to_lowercase())
+                        .with_extension("rs"),
                     tokens.to_string(),
                 )
                 .map_err(Error::IoError)?
@@ -243,9 +245,10 @@ impl WgslBindgen {
                 .preprocessed_files
                 .resolved_files
                 .iter()
-                .map(|f| format!("pub mod {};", f.name))
+                .map(|f| format!("pub mod {};", f.name.to_lowercase()))
                 .collect::<Vec<_>>()
                 .join("\n");
+
             std::fs::write(self.output.join("mod.rs"), mod_contents).map_err(Error::IoError)?;
         } else {
             std::fs::write(self.output, all_tokens.to_string()).map_err(Error::IoError)?;
