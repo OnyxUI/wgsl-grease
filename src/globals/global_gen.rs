@@ -235,6 +235,10 @@ pub fn make_global_bindgroups(module: &Module, config: &Config) -> TokenStream {
                         );
                     Self(bind_group)
                 }
+
+                pub fn get_bind_group(&self) -> &wgpu::BindGroup {
+                    &self.0
+                }
             }
         });
     }
