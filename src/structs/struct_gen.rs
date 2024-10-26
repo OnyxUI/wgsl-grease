@@ -162,7 +162,7 @@ fn build_struct(
     // TODO: custom derives maybe
     let derives = quote! {
         #[cfg_attr(debug_assertions, derive(Debug))]
-        #[derive(PartialEq, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+        #[derive(PartialEq, Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
     };
 
     let alignment = Literal::usize_unsuffixed((layout.alignment * 1u32) as usize);
