@@ -1,0 +1,12 @@
+[package]
+name = "naga-grease"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+naga_oil = "0.15.0"
+naga = "22.1.0"
+wgpu-types = "^22.0.0"
+dependency-graph = "0.1.5"
+proc-macro2 = "1.0.89"
+quote = "1.0.37"
