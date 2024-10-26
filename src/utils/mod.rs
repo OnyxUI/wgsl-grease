@@ -22,7 +22,10 @@ pub fn quote_visibility(vis: wgpu_types::ShaderStages) -> TokenStream {
         wgpu_types::ShaderStages::VERTEX_FRAGMENT => {
             quote::quote! { wgpu::ShaderStages::VERTEX_FRAGMENT }
         }
-        _ => unimplemented!("more shader stage"),
+        wgpu_types::ShaderStages::NONE => {
+            quote::quote! { wgpu::ShaderStages::NONE }
+        }
+        stage => unimplemented!("implement shader stage {stage:?}"),
     }
 }
 
