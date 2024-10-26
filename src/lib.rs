@@ -184,6 +184,7 @@ pub(crate) struct Config {
     resolve_type_map: HashMap<String, TokenStream>,
 
     defined_constants: HashSet<String>,
+    // TODO: keep track of global bind groups so they arent duplicated
 }
 
 pub struct WgslBindgen {
