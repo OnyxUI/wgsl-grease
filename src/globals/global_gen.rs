@@ -4,7 +4,10 @@ use naga::{Module, Type, TypeInner};
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::{utils::identify, Config};
+use crate::{
+    utils::{identify, naga_undecorate},
+    Config,
+};
 
 use super::bind_group_gen::{bind_group_layout_entry_type, custom_bind_group_layout_entry_type};
 
@@ -121,7 +124,7 @@ pub fn make_global_bindgroups(module: &Module, config: &Config) -> TokenStream {
                 resource_type,
             } = binding;
 
-            let name_ident = identify(name);
+            let name_ident = identify(naga_undecorate(name));
 
             // generates the fields in the BindGroupXEntriesParams
             let entry_param_type = match resource_type {
