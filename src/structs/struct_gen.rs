@@ -2,12 +2,13 @@ use std::collections::HashSet;
 
 use naga::{
     proc::{Layouter, TypeLayout},
-    ArraySize, Binding, Handle, Module, StructMember, Type, TypeInner,
+    ArraySize, Binding, Handle, Module, ShaderStage, StructMember, Type, TypeInner,
 };
 use proc_macro2::{Ident, Literal, TokenStream};
 use quote::quote;
 
 use crate::{
+    structs::vertex_layout::build_vertex_buffer_descriptor,
     utils::{identify, naga_undecorate, rust_type_info::rust_type},
     Config,
 };
@@ -24,20 +25,21 @@ use crate::{
 //     })
 // }
 
-struct GeneratedPadding {
+pub(crate) struct GeneratedPadding {
     pub name: Ident,
     pub size: TokenStream,
 }
 
-struct GeneratedField<'a> {
-    name: Ident,
-    member: &'a StructMember,
-    typ: &'a Type,
-    rust_type: TokenStream,
+pub(crate) struct GeneratedField<'a> {
+    pub name: Ident,
+    pub member: &'a StructMember,
+    pub typ: &'a Type,
+    pub rust_type: TokenStream,
+    pub location: Option<u32>,
     // is_dynamically_sized: bool,
 }
 
-enum RustStructMember<'a> {
+pub(crate) enum RustStructMember<'a> {
     Field(GeneratedField<'a>),
     Padding(GeneratedPadding),
 }
@@ -133,6 +135,7 @@ fn build_struct_new(name: &Ident, members: &[RustStructMember]) -> TokenStream {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_struct(
     module: &Module,
     name: &str,
@@ -140,6 +143,7 @@ fn build_struct(
     layout: &TypeLayout,
     is_host_shareable: bool,
     has_dynamic_array: bool,
+    is_vertex_input: bool,
     config: &Config,
 ) -> TokenStream {
     // TODO: custom alignment maybe
@@ -174,11 +178,17 @@ fn build_struct(
             quote!(#[repr(C)])
         }
     } else {
-        quote!()
+        TokenStream::new()
     };
 
     let fields = build_struct_fields(module, members, is_host_shareable);
     let new_impl = build_struct_new(&struct_name, members);
+
+    let vertex_descriptor_impl = if is_vertex_input {
+        build_vertex_buffer_descriptor(name, members)
+    } else {
+        TokenStream::new()
+    };
 
     // TODO: assert layout?
     // let assert_layout = self.build_layout_assertion(custom_alignment);
@@ -198,6 +208,7 @@ fn build_struct(
         }
 
         #new_impl
+        #vertex_descriptor_impl
     }
 }
 
@@ -215,6 +226,18 @@ fn make_struct(
 
     let mut has_dynamic_array = false; //struct_has_dynamic_array_member(members, module);
     let is_host_shareable = global_variable_types.contains(&t_handle);
+
+    let is_vertex_input = module
+        .entry_points
+        .iter()
+        .filter(|e| e.stage == ShaderStage::Vertex)
+        .any(|e| {
+            e.function
+                .arguments
+                .iter()
+                .filter(|a| a.binding.is_none())
+                .any(|a| a.ty == t_handle)
+        });
 
     let mut rust_struct_members = vec![];
 
@@ -290,12 +313,16 @@ fn make_struct(
                 size: pad_size,
             })
         } else {
+            let location = match member.binding.as_ref() {
+                Some(Binding::Location { location, .. }) => Some(*location),
+                _ => None,
+            };
             RustStructMember::Field(GeneratedField {
                 name: name_ident.clone(),
                 member,
                 typ: naga_type,
                 rust_type: rust_type.tokens,
-                // is_dynamically_sized,
+                location, // is_dynamically_sized,
             })
         };
 
@@ -315,6 +342,7 @@ fn make_struct(
         &layout,
         is_host_shareable,
         has_dynamic_array,
+        is_vertex_input,
         config,
     )
 }
