@@ -173,18 +173,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "naga-grease"
-version = "0.1.0"
-dependencies = [
- "dependency-graph",
- "naga",
- "naga_oil",
- "proc-macro2",
- "quote",
- "wgpu-types",
-]
-
-[[package]]
 name = "naga_oil"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -451,6 +439,18 @@ dependencies = [
  "bitflags",
  "js-sys",
  "web-sys",
+]
+
+[[package]]
+name = "wgsl-grease"
+version = "0.1.0"
+dependencies = [
+ "dependency-graph",
+ "naga",
+ "naga_oil",
+ "proc-macro2",
+ "quote",
+ "wgpu-types",
 ]
 
 [[package]]

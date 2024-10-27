@@ -1,5 +1,5 @@
 [package]
-name = "naga-grease"
+name = "wgsl-grease"
 version = "0.1.0"
 edition = "2021"
 
