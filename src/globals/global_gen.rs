@@ -45,7 +45,7 @@ fn make_group_bindings(module: &Module) -> HashMap<u32, Vec<GroupBinding>> {
 
     for (_, global) in module.global_variables.iter() {
         let global_name = match &global.name {
-            Some(n) => n.clone(),
+            Some(n) => naga_undecorate(n).to_string(),
             None => {
                 println!("warn: skipping as missing global name");
                 continue;
@@ -99,15 +99,35 @@ fn make_group_bindings(module: &Module) -> HashMap<u32, Vec<GroupBinding>> {
     global_bindings
 }
 
-pub fn make_global_bindgroups(module: &Module, config: &Config) -> TokenStream {
+pub fn make_global_bindgroups(module: &Module, config: &mut Config) -> TokenStream {
     let mut globals = TokenStream::new();
 
     let global_bindings = make_group_bindings(module);
 
     let visibility = naga_stage_to_wgpu(module);
 
+    let mut binding_names = vec![];
+
     for bindex in global_bindings.keys() {
         let bindings = global_bindings.get(bindex).unwrap();
+
+        // TODO: if the vec contains any extra globals that dont exist instead of regenerating the whole struct it should maybe make something like
+        /*
+           struct BindGroupX1Entries {
+               pub base: BindGroupXEntries,
+               pub X: wgpu::BindGroupEntry<...>,
+               ...
+           }
+        */
+        // if we have already encountered this bind group and all of its members, skip
+        if let Some(known_bindings) = config.defined_globals.get(&(*bindex as usize)) {
+            if bindings
+                .iter()
+                .all(|binding| known_bindings.contains(&binding.name))
+            {
+                continue;
+            }
+        }
 
         let mut entries_params_fields = vec![];
         let mut entries_fields = vec![];
@@ -123,6 +143,8 @@ pub fn make_global_bindgroups(module: &Module, config: &Config) -> TokenStream {
                 address_space,
                 resource_type,
             } = binding;
+
+            binding_names.push(name.clone());
 
             let name_ident = identify(naga_undecorate(name));
 
@@ -241,6 +263,12 @@ pub fn make_global_bindgroups(module: &Module, config: &Config) -> TokenStream {
                 }
             }
         });
+
+        config
+            .defined_globals
+            .entry(*bindex as usize)
+            .or_insert(binding_names.clone());
+        binding_names.clear();
     }
 
     quote! {

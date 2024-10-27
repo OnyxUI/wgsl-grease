@@ -184,7 +184,9 @@ pub(crate) struct Config {
     resolve_type_map: HashMap<String, TokenStream>,
 
     defined_constants: HashSet<String>,
-    // TODO: keep track of global bind groups so they arent duplicated
+
+    // maps bind group index to name of globals in that bind group
+    defined_globals: HashMap<usize, Vec<String>>,
 }
 
 pub struct WgslBindgen {
@@ -214,6 +216,7 @@ impl WgslBindgen {
 
             resolve_type_map: HashMap::new(),
             defined_constants: HashSet::new(),
+            defined_globals: HashMap::new(),
         };
 
         let mut all_tokens = TokenStream::new();
