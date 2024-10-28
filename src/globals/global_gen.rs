@@ -99,17 +99,22 @@ fn make_group_bindings(module: &Module) -> HashMap<u32, Vec<GroupBinding>> {
     global_bindings
 }
 
-pub fn make_global_bindgroups(module: &Module, config: &mut Config) -> TokenStream {
+pub fn make_global_bindgroups(module: &Module, config: &mut Config) -> (TokenStream, Vec<u32>) {
     let mut globals = TokenStream::new();
 
     let global_bindings = make_group_bindings(module);
 
     let visibility = naga_stage_to_wgpu(module);
 
+    let file_name_ident = identify(&config.file_name);
+
     let mut binding_names = vec![];
+    let mut bind_group_indexes = vec![];
 
     for bindex in global_bindings.keys() {
         let bindings = global_bindings.get(bindex).unwrap();
+
+        bind_group_indexes.push(*bindex);
 
         // TODO: if the vec contains any extra globals that dont exist instead of regenerating the whole struct it should maybe make something like
         /*
@@ -120,7 +125,7 @@ pub fn make_global_bindgroups(module: &Module, config: &mut Config) -> TokenStre
            }
         */
         // if we have already encountered this bind group and all of its members, skip
-        if let Some(known_bindings) = config.defined_globals.get(&(*bindex as usize)) {
+        if let Some(known_bindings) = config.known_bind_groups.get(&(*bindex as usize)) {
             if bindings
                 .iter()
                 .all(|binding| known_bindings.contains(&binding.name))
@@ -264,19 +269,28 @@ pub fn make_global_bindgroups(module: &Module, config: &mut Config) -> TokenStre
             }
         });
 
+        config.bind_group_location.insert(
+            *bindex as usize,
+            quote! {
+                #file_name_ident ::globals:: #bind_group_name
+            },
+        );
+
         config
-            .defined_globals
+            .known_bind_groups
             .entry(*bindex as usize)
             .or_insert(binding_names.clone());
         binding_names.clear();
     }
 
-    quote! {
+    let out = quote! {
         pub mod globals {
             #[allow(unused_imports)]
             pub use super::*;
 
             #globals
         }
-    }
+    };
+
+    (out, bind_group_indexes)
 }

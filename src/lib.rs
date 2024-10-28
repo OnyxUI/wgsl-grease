@@ -188,7 +188,9 @@ pub(crate) struct Config {
     defined_constants: HashSet<String>,
 
     // maps bind group index to name of globals in that bind group
-    defined_globals: HashMap<usize, Vec<String>>,
+    known_bind_groups: HashMap<usize, Vec<String>>,
+    // bind group to file path
+    bind_group_location: HashMap<usize, TokenStream>,
 
     // keeps track of what structs have vertex buffer layout impls
     // we dont care what file impls it since its public, just if it has one already
@@ -222,8 +224,9 @@ impl WgslBindgen {
 
             resolve_type_map: HashMap::new(),
             defined_constants: HashSet::new(),
-            defined_globals: HashMap::new(),
+            known_bind_groups: HashMap::new(),
             vertex_descriptor_impl: HashSet::new(),
+            bind_group_location: HashMap::new(),
         };
 
         let mut all_tokens = TokenStream::new();

@@ -128,8 +128,37 @@ fn build_entry_points(
     }
 }
 
+fn build_pipeline_func(indexes: &[u32], config: &Config) -> TokenStream {
+    let label = format!("{}::PipelineLayout", &config.file_name);
+
+    let mut bind_groups = vec![];
+
+    for index in indexes {
+        let path = config.bind_group_location.get(&(*index as usize));
+        // only 1 super since we are already at the root of the file/mod
+        bind_groups.push(quote! {
+            super:: #path :: get_bind_group_layout(device)
+        });
+    }
+
+    quote! {
+        pub fn create_pipeline_layout(device: &wgpu::Device) -> wgpu::PipelineLayout {
+            device
+                .create_pipeline_layout(
+                    &wgpu::PipelineLayoutDescriptor {
+                        label: Some(#label),
+                        bind_group_layouts: &[
+                            #(&#bind_groups),*
+                        ],
+                        push_constant_ranges: &[],
+                    },
+                )
+        }
+    }
+}
+
 pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Error> {
-    let globals_tokens = global_gen::make_global_bindgroups(module, config);
+    let (globals_tokens, bind_group_indexes) = global_gen::make_global_bindgroups(module, config);
     let constants_tokens = const_gen::make_constants(module, config);
     let (structs_tokens, vertex_inputs) = struct_gen::make_structs(module, config);
 
@@ -146,16 +175,15 @@ pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Err
     //     naga::back::spv::write_vec(module, &info, &naga::back::spv::Options::default(), None)
     //         .unwrap();
     // let len = test.len();
-    /*
-    device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                        label: Some(&format!("{}_shader_module_descriptor", stringify!($name))),
-                        source: wgpu::ShaderSource::Wgsl($src.into()),
-                    })
-     */
+
     let shader_module_name = format!("{}::ShaderModule", &config.file_name);
+
+    let pipeline_func = build_pipeline_func(&bind_group_indexes, config);
 
     let shared_tokens = quote! {
         pub const SOURCE: &str = #source;
+
+        #pipeline_func
 
         pub fn create_shader_module(device: &wgpu::Device) -> wgpu::ShaderModule {
             device.create_shader_module(wgpu::ShaderModuleDescriptor {
