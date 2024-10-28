@@ -135,16 +135,13 @@ fn build_struct_new(name: &Ident, members: &[RustStructMember]) -> TokenStream {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn build_struct(
+fn build_main_struct(
     module: &Module,
-    name: &str,
+    name_ident: &Ident,
     members: &[RustStructMember],
     layout: &TypeLayout,
     is_host_shareable: bool,
     has_dynamic_array: bool,
-    is_vertex_input: bool,
-    config: &Config,
 ) -> TokenStream {
     // TODO: custom alignment maybe
     // let custom_alignment = self
@@ -160,7 +157,6 @@ fn build_struct(
     //     .map(|align| naga::proc::Alignment::new(align))
     //     .flatten();
 
-    let struct_name = identify(name);
     let should_generate_padding = is_host_shareable;
 
     // TODO: custom derives maybe
@@ -182,13 +178,7 @@ fn build_struct(
     };
 
     let fields = build_struct_fields(module, members, is_host_shareable);
-    let new_impl = build_struct_new(&struct_name, members);
-
-    let vertex_descriptor_impl = if is_vertex_input {
-        build_vertex_buffer_descriptor(name, members)
-    } else {
-        TokenStream::new()
-    };
+    let new_impl = build_struct_new(name_ident, members);
 
     // TODO: assert layout?
     // let assert_layout = self.build_layout_assertion(custom_alignment);
@@ -203,11 +193,60 @@ fn build_struct(
         #[allow(non_snake_case)]
         #repr_c
         #derives
-        pub struct #struct_name {
+        pub struct #name_ident {
             #(#fields),*
         }
 
         #new_impl
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_struct(
+    module: &Module,
+    name: &str,
+    members: &[RustStructMember],
+    layout: &TypeLayout,
+    is_host_shareable: bool,
+    has_dynamic_array: bool,
+    is_vertex_input: bool,
+    config: &mut Config,
+) -> TokenStream {
+    let name_ident = identify(name);
+
+    let struct_tokens = if !config.resolve_type_map.contains_key(name) {
+        let path = identify(&config.file_name);
+
+        config.resolve_type_map.insert(
+            name.to_string(),
+            quote! {
+                #path::structs::#name_ident
+            },
+        );
+
+        build_main_struct(
+            module,
+            &name_ident,
+            members,
+            layout,
+            is_host_shareable,
+            has_dynamic_array,
+        )
+    } else {
+        TokenStream::new()
+    };
+
+    let vertex_descriptor_impl = if is_vertex_input && !config.vertex_descriptor_impl.contains(name)
+    {
+        config.vertex_descriptor_impl.insert(name.to_string());
+
+        build_vertex_buffer_descriptor(config.resolve_type(name), members)
+    } else {
+        TokenStream::new()
+    };
+
+    quote! {
+        #struct_tokens
         #vertex_descriptor_impl
     }
 }
@@ -219,7 +258,7 @@ fn make_struct(
     t_handle: Handle<Type>,
     module: &Module,
     global_variable_types: &HashSet<Handle<Type>>,
-    config: &Config, // options: &WgslBindgenOption,
+    config: &mut Config, // options: &WgslBindgenOption,
 ) -> (TokenStream, bool) {
     let gctx = module.to_ctx();
     let layout = layouter[t_handle];
@@ -375,33 +414,22 @@ pub fn make_structs(module: &Module, config: &mut Config) -> (TokenStream, Vec<S
         if let TypeInner::Struct { members, .. } = &typ.inner {
             let name = naga_undecorate(typ.name.as_ref().expect("struct with name"));
 
-            let path = identify(&config.file_name);
+            // let ident_name = identify(name);
 
-            let ident_name = identify(name);
+            let (struct_tokens, is_vertex_input) = make_struct(
+                name,
+                members,
+                &layouter,
+                handle,
+                module,
+                &global_variable_types,
+                config,
+            );
 
-            if !config.resolve_type_map.contains_key(name) {
-                config.resolve_type_map.insert(
-                    name.to_string(),
-                    quote! {
-                        #path::structs::#ident_name
-                    },
-                );
+            tokens.extend(struct_tokens);
 
-                let (struct_tokens, is_vertex_input) = make_struct(
-                    name,
-                    members,
-                    &layouter,
-                    handle,
-                    module,
-                    &global_variable_types,
-                    config,
-                );
-
-                tokens.extend(struct_tokens);
-
-                if is_vertex_input {
-                    vertex_inputs.push(name.to_string())
-                }
+            if is_vertex_input {
+                vertex_inputs.push(name.to_string())
             }
         } else {
             continue;

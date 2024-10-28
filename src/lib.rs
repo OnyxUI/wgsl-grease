@@ -8,6 +8,7 @@ mod utils;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
+    hash::Hash,
     path::{Path, PathBuf},
 };
 
@@ -188,6 +189,10 @@ pub(crate) struct Config {
 
     // maps bind group index to name of globals in that bind group
     defined_globals: HashMap<usize, Vec<String>>,
+
+    // keeps track of what structs have vertex buffer layout impls
+    // we dont care what file impls it since its public, just if it has one already
+    vertex_descriptor_impl: HashSet<String>,
 }
 
 pub struct WgslBindgen {
@@ -218,6 +223,7 @@ impl WgslBindgen {
             resolve_type_map: HashMap::new(),
             defined_constants: HashSet::new(),
             defined_globals: HashMap::new(),
+            vertex_descriptor_impl: HashSet::new(),
         };
 
         let mut all_tokens = TokenStream::new();

@@ -1,4 +1,5 @@
 use naga::{Module, ScalarKind, Type, TypeInner, VectorSize};
+use naga_oil::compose::tokenizer::Token;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -51,8 +52,11 @@ pub fn quote_vertex_format(ty: &Type) -> TokenStream {
         s => todo!("other vertex format {s:?}"), // are these types even valid as attributes?
     }
 }
-pub fn build_vertex_buffer_descriptor(name: &str, members: &[RustStructMember]) -> TokenStream {
-    let name = identify(name);
+pub fn build_vertex_buffer_descriptor(
+    path: TokenStream,
+    members: &[RustStructMember],
+) -> TokenStream {
+    // let name = identify(name);
 
     let mut attributes = vec![];
 
@@ -85,7 +89,7 @@ pub fn build_vertex_buffer_descriptor(name: &str, members: &[RustStructMember]) 
     }
 
     quote! {
-        impl #name {
+        impl #path {
             pub fn vertex_desc(step_mode: wgpu::VertexStepMode) -> wgpu::VertexBufferLayout<'static> {
                 wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,

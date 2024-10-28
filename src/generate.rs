@@ -1,13 +1,17 @@
 use naga::{
     back::wgsl,
     valid::{Capabilities, ValidationFlags, Validator},
-    Module, ShaderStage,
+    Module, ShaderStage, TypeInner,
 };
 use proc_macro2::TokenStream;
 use quote::quote;
 
 use crate::{
-    constants::const_gen, globals::global_gen, structs::struct_gen, utils::identify, Config, Error,
+    constants::const_gen,
+    globals::global_gen,
+    structs::struct_gen,
+    utils::{identify, naga_undecorate},
+    Config, Error,
 };
 
 pub fn build_entry_tokens() -> TokenStream {
@@ -93,6 +97,7 @@ fn build_entry_points(
                 for name in &vertex_input_names {
                     let name_ident = identify(&format!("{name}_step_mode"));
                     step_modes.push(quote! { #name_ident: wgpu::VertexStepMode });
+
                     let path = config.resolve_type(name);
                     vertex_desc.push(quote! { #path::vertex_desc(#name_ident) })
                 }
