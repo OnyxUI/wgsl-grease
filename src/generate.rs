@@ -172,11 +172,6 @@ pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Err
     let source = wgsl::write_string(module, &info, wgsl::WriterFlags::empty())
         .map_err(Error::NagaWriterError)?;
 
-    // let test =
-    //     naga::back::spv::write_vec(module, &info, &naga::back::spv::Options::default(), None)
-    //         .unwrap();
-    // let len = test.len();
-
     let shader_module_name = format!("{}::ShaderModule", &config.file_name);
 
     bind_group_indexes.sort();
@@ -193,8 +188,6 @@ pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Err
                 source: wgpu::ShaderSource::Wgsl(self::SOURCE.into()),
             })
         }
-
-        // pub const TEST: [u32; #len] = [#(#test),*];
     };
 
     if config.separate_files {
