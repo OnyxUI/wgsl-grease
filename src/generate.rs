@@ -158,7 +158,8 @@ fn build_pipeline_func(indexes: &[u32], config: &Config) -> TokenStream {
 }
 
 pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Error> {
-    let (globals_tokens, bind_group_indexes) = global_gen::make_global_bindgroups(module, config);
+    let (globals_tokens, mut bind_group_indexes) =
+        global_gen::make_global_bindgroups(module, config);
     let constants_tokens = const_gen::make_constants(module, config);
     let (structs_tokens, vertex_inputs) = struct_gen::make_structs(module, config);
 
@@ -178,6 +179,7 @@ pub fn generate(module: &Module, config: &mut Config) -> Result<TokenStream, Err
 
     let shader_module_name = format!("{}::ShaderModule", &config.file_name);
 
+    bind_group_indexes.sort();
     let pipeline_func = build_pipeline_func(&bind_group_indexes, config);
 
     let shared_tokens = quote! {
