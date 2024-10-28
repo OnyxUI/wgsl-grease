@@ -12,6 +12,7 @@ use std::{
 };
 
 use dependency_graph::{DependencyGraph, Node, Step};
+use generate::build_entry_tokens;
 use naga::{
     valid::{Capabilities, ValidationError},
     Module,
@@ -245,6 +246,9 @@ impl WgslBindgen {
         }
 
         if self.separate_files {
+            // we only ever want 1 instance of these structs so in multiple files they go in the mod.rs
+            let entry_structs = build_entry_tokens();
+
             let mod_contents = self
                 .preprocessed_files
                 .resolved_files
@@ -253,7 +257,11 @@ impl WgslBindgen {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            std::fs::write(self.output.join("mod.rs"), mod_contents).map_err(Error::IoError)?;
+            std::fs::write(
+                self.output.join("mod.rs"),
+                format!("{mod_contents}\n{entry_structs}"),
+            )
+            .map_err(Error::IoError)?;
         } else {
             std::fs::write(self.output, all_tokens.to_string()).map_err(Error::IoError)?;
         }

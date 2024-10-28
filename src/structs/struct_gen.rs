@@ -193,7 +193,7 @@ fn build_struct(
     // TODO: assert layout?
     // let assert_layout = self.build_layout_assertion(custom_alignment);
     // we use bytemuck in a derive instead so the impl's arent necessary
-    // TODO: maybe in the future we can allow for other variations aside from bytemuck but thats kinda the point of wgls-bindgen
+    // TODO: maybe in the future we can allow for other variations aside from bytemuck but thats kinda the point of wgsl-bindgen
     // let unsafe_bytemuck_pod_impl = self.build_bytemuck_impls();
 
     // TODO: custom visibility maybe
@@ -220,7 +220,7 @@ fn make_struct(
     module: &Module,
     global_variable_types: &HashSet<Handle<Type>>,
     config: &Config, // options: &WgslBindgenOption,
-) -> TokenStream {
+) -> (TokenStream, bool) {
     let gctx = module.to_ctx();
     let layout = layouter[t_handle];
 
@@ -335,23 +335,28 @@ fn make_struct(
         }
     }
 
-    build_struct(
-        module,
-        name,
-        &rust_struct_members,
-        &layout,
-        is_host_shareable,
-        has_dynamic_array,
+    (
+        build_struct(
+            module,
+            name,
+            &rust_struct_members,
+            &layout,
+            is_host_shareable,
+            has_dynamic_array,
+            is_vertex_input,
+            config,
+        ),
         is_vertex_input,
-        config,
     )
 }
 
-pub fn make_structs(module: &Module, config: &mut Config) -> TokenStream {
+pub fn make_structs(module: &Module, config: &mut Config) -> (TokenStream, Vec<String>) {
     let mut layouter = Layouter::default();
     layouter.update(module.to_ctx()).unwrap();
 
     let mut tokens = TokenStream::new();
+
+    let mut vertex_inputs = vec![];
 
     // im not exactly sure what this does
     let mut global_variable_types = HashSet::new();
@@ -382,7 +387,7 @@ pub fn make_structs(module: &Module, config: &mut Config) -> TokenStream {
                     },
                 );
 
-                tokens.extend(make_struct(
+                let (struct_tokens, is_vertex_input) = make_struct(
                     name,
                     members,
                     &layouter,
@@ -390,21 +395,29 @@ pub fn make_structs(module: &Module, config: &mut Config) -> TokenStream {
                     module,
                     &global_variable_types,
                     config,
-                ));
+                );
+
+                tokens.extend(struct_tokens);
+
+                if is_vertex_input {
+                    vertex_inputs.push(name.to_string())
+                }
             }
         } else {
             continue;
         }
     }
 
-    quote! {
+    let out = quote! {
         pub mod structs {
             #[allow(unused_imports)]
             pub use super::*;
 
             #tokens
         }
-    }
+    };
+
+    (out, vertex_inputs)
 }
 
 fn add_types_recursive(types: &mut HashSet<Handle<Type>>, module: &Module, ty: Handle<Type>) {

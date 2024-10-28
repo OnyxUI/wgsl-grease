@@ -48,7 +48,7 @@ pub fn quote_vertex_format(ty: &Type) -> TokenStream {
                 s => todo!("vec4 vertex format {s:?}"),
             },
         },
-        s => todo!("other  vertex format {s:?}"), // are these types even valid as attributes?
+        s => todo!("other vertex format {s:?}"), // are these types even valid as attributes?
     }
 }
 pub fn build_vertex_buffer_descriptor(name: &str, members: &[RustStructMember]) -> TokenStream {
@@ -86,13 +86,15 @@ pub fn build_vertex_buffer_descriptor(name: &str, members: &[RustStructMember]) 
 
     quote! {
         impl #name {
-            pub const VERTEX_DESC: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &[
-                    #(#attributes),*
-                ],
-            };
+            pub fn vertex_desc(step_mode: wgpu::VertexStepMode) -> wgpu::VertexBufferLayout<'static> {
+                wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+                    step_mode,
+                    attributes: &[
+                        #(#attributes),*
+                    ],
+                }
+            }
         }
     }
 }
