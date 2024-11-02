@@ -30,7 +30,7 @@ pub fn build_entry_tokens() -> TokenStream {
         ) -> wgpu::FragmentState<'__lt> {
             wgpu::FragmentState {
                 module,
-                entry_point: entry.entry_point,
+                entry_point: Some(entry.entry_point),
                 targets: &entry.targets,
                 compilation_options: Default::default(),
             }
@@ -49,7 +49,7 @@ pub fn build_entry_tokens() -> TokenStream {
         ) -> wgpu::VertexState<'__lt> {
             wgpu::VertexState {
                 module,
-                entry_point: entry.entry_point,
+                entry_point: Some(entry.entry_point),
                 buffers: &entry.buffers,
                 compilation_options: Default::default(),
             }
