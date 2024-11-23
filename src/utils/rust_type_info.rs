@@ -13,6 +13,7 @@ use super::{identify, naga_undecorate};
 
 // use crate::type_map::{};
 
+#[derive(Debug)]
 pub struct RustTypeInfo {
     pub tokens: TokenStream,
     // size in bytes, if none then it is a runtime sized array
@@ -70,6 +71,8 @@ fn get_stride_and_padding(
     let total_bytes = alignment.round_up(used_bytes);
     let padding_bytes = total_bytes - used_bytes;
 
+    println!("width {width}, rows {rows}, used_bytes {used_bytes}, total_bytes {total_bytes}, padding_bytes {padding_bytes} ");
+
     // NOTE: bytemuch only strategy
     (total_bytes, padding_bytes)
 }
@@ -103,11 +106,15 @@ pub fn rust_type(module: &naga::Module, ty: &naga::Type, config: &Config) -> Opt
     Some(match &ty.inner {
         TypeInner::Scalar(scalar) => rust_scalar_type(*scalar, alignment)?,
         TypeInner::Vector { size, scalar } => {
-            let (stride, _) = get_stride_and_padding(alignment, *size, scalar.width);
+            let (stride, padding) = get_stride_and_padding(alignment, *size, scalar.width);
             let inner_type = rust_scalar_type(*scalar, alignment)?.tokens;
-            let len = (stride / scalar.width as u32) as usize;
+            let len = ((stride - padding) / scalar.width as u32) as usize;
 
-            RustTypeInfo::new_size(quote! { [#inner_type; #len] }, stride as usize, alignment)
+            RustTypeInfo::new_size(
+                quote! { [#inner_type; #len] },
+                (stride - padding) as usize,
+                alignment,
+            )
         }
         TypeInner::Matrix {
             columns,

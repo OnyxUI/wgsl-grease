@@ -83,7 +83,7 @@ fn build_struct_fields(
             }
             RustStructMember::Padding(padding) => {
                 let GeneratedPadding { name, size } = padding;
-                quote! { pub #name: [u8; #size] }
+                quote! { #name: [u8; const { #size }] }
             }
         };
 
@@ -116,7 +116,7 @@ fn build_struct_new(name: &Ident, members: &[RustStructMember]) -> TokenStream {
                 let GeneratedPadding { name, size } = generated_padding;
 
                 field_data.push(quote! {
-                    #name: [0; #size]
+                    #name: [0; const { #size }]
                 })
             }
         }
@@ -280,6 +280,8 @@ fn make_struct(
 
     let mut rust_struct_members = vec![];
 
+    let mut struct_total_size: u32 = 0;
+
     for (index, member) in members.iter().enumerate() {
         let member_name = member.name.as_ref().unwrap();
         let name_ident = identify(member_name);
@@ -304,26 +306,53 @@ fn make_struct(
         }
 
         // check if we need padding bytes between the current member and the next member
-        // i dont quite understand what the point of the `global_variable_types` is and what the check if fore
         let padding = if is_dynamically_sized || !is_host_shareable {
             None
         } else {
-            let current_offset = member.offset as usize;
-            let next_offset = if index + 1 < members.len() {
-                members[index + 1].offset as usize
+            // let current_offset = member.offset;
+            // // use the next member to calculate what the size of the current member is
+            // let next_offset = if index + 1 < members.len() {
+            //     members[index + 1].offset
+            // } else {
+            //     // struct_total_size
+            //     layout.size
+            // };
+
+            // the only type that does not have a size is a dynamic array,
+            // and due to the check above that type should never show up here
+            let member_size = rust_type.size.expect("dynamic array") as u32;
+            let aligned_member_size = rust_type.alignment.round_up(member_size);
+
+            struct_total_size += aligned_member_size;
+
+            // println!("{member_name}, {}", rust_type.size.unwrap());
+
+            // if there is a difference in the aligned size and the normal size then the member is unaligned
+            // so we need to add the difference as padding
+            let has_padding = if aligned_member_size - member_size > 0 {
+                // padding
+                let pad_name = identify(&format!("_pad_{}", member_name));
+                let size = Literal::usize_suffixed(aligned_member_size as usize);
+                let pad_size = quote! { #size - core::mem::size_of::<#rust_type>() };
+
+                let padding = GeneratedPadding {
+                    name: pad_name,
+                    size: pad_size,
+                };
+
+                Some(padding)
             } else {
-                layout.size as usize
-            };
-            let rust_type = &rust_type;
+                println!(
+                    "{member_name}, {}, {struct_total_size}",
+                    rust_type.size.unwrap(),
+                );
 
-            let pad_name = format!("_pad_{}", member_name);
-            let member_size = next_offset - current_offset;
-
-            match rust_type.aligned_size() {
-                Some(rust_type_size) if member_size == rust_type_size => None,
-                _ => {
-                    let pad_name = identify(&pad_name);
-                    let pad_size = quote! { #member_size - core::mem::size_of::<#rust_type>() };
+                let final_padding = layout.size - struct_total_size;
+                // if there is any padding needed between the final member and the end of the struct, this will add it
+                if final_padding > 0 && index + 1 == members.len() {
+                    let pad_name = identify("_pad_end");
+                    let size = Literal::usize_suffixed(final_padding as usize);
+                    let pad_size = quote! { #size };
 
                     let padding = GeneratedPadding {
                         name: pad_name,
@@ -331,8 +360,25 @@ fn make_struct(
                     };
 
                     Some(padding)
+                } else {
+                    None
                 }
-            }
+            };
+
+            has_padding
+            // let rust_type = &rust_type;
+
+            // let member_size = next_offset - current_offset;
+
+            // println!("{member_name}, member_size {member_size}, current_offset {current_offset}, next_offset {next_offset}, aligned {:?}", rust_type.alignment.round_up(member_size as u32));
+
+            // // dbg!(rust_type.alignment.round_up(member_size as u32));
+
+            // match rust_type.alignment.round_up(member_size as u32) as usize {
+            //     // rust_type_size if member_size == rust_type_size => None,
+            //     aligned => {
+            //     }
+            // }
         };
 
         // TODO: custom padding field members maybe
