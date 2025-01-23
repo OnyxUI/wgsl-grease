@@ -56,8 +56,6 @@ pub fn build_vertex_buffer_descriptor(
     path: TokenStream,
     members: &[RustStructMember],
 ) -> TokenStream {
-    // let name = identify(name);
-
     let mut attributes = vec![];
 
     for member in members {
@@ -82,9 +80,8 @@ pub fn build_vertex_buffer_descriptor(
                     }
                 });
             }
-            RustStructMember::Padding(..) => {
-                unreachable!("padding in vertex input struct")
-            }
+            // vertex shader inputs can have padding but we just ignore that when creating the vertex attributes
+            RustStructMember::Padding(..) => (),
         }
     }
 

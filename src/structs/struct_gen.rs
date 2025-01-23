@@ -342,11 +342,6 @@ fn make_struct(
 
                 Some(padding)
             } else {
-                println!(
-                    "{member_name}, {}, {struct_total_size}",
-                    rust_type.size.unwrap(),
-                );
-
                 let final_padding = layout.size - struct_total_size;
                 // if there is any padding needed between the final member and the end of the struct, this will add it
                 if final_padding > 0 && index + 1 == members.len() {

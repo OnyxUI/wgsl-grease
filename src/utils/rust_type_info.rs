@@ -71,8 +71,6 @@ fn get_stride_and_padding(
     let total_bytes = alignment.round_up(used_bytes);
     let padding_bytes = total_bytes - used_bytes;
 
-    println!("width {width}, rows {rows}, used_bytes {used_bytes}, total_bytes {total_bytes}, padding_bytes {padding_bytes} ");
-
     // NOTE: bytemuch only strategy
     (total_bytes, padding_bytes)
 }
